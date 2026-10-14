@@ -1,0 +1,64 @@
+[project]
+name = "design-asset-manager"
+version = "0.1.0"
+description = "Asset library for architecture and interior design firms: upload, auto-categorize, and search images and video."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic[email]>=2.8",
+    "pydantic-settings>=2.4",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "asyncpg>=0.29",
+    "alembic>=1.13",
+    "pgvector>=0.3",
+    "boto3>=1.34",
+    "arq>=0.26",
+    "redis>=5.0",
+    "anthropic>=1.0",
+    "httpx>=0.27",
+    "pillow>=10.4",
+    "pillow-heif>=0.18",
+    "numpy>=2.0",
+    "itsdangerous>=2.2",
+    "python-multipart>=0.0.9",
+    "aiosmtplib>=3.0",
+    "structlog>=24.1",
+    "cryptography>=42",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "types-boto3",
+]
+
+[project.scripts]
+dam-api = "dam.main:run"
+dam-worker = "dam.worker:run"
+dam-admin = "dam.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dam"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]

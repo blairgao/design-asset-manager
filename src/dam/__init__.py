@@ -1,0 +1,1 @@
+"""Design Asset Manager."""
