@@ -14,8 +14,11 @@ import type {
   UploadSession,
 } from "./types";
 
-export const API_BASE: string =
-  (import.meta.env.VITE_API_BASE as string | undefined) ?? "http://localhost:8000";
+const configuredBase = (import.meta.env.VITE_API_BASE as string | undefined)?.trim();
+// Render's Blueprint `fromService` injects a bare hostname; everything else is a full URL.
+export const API_BASE: string = configuredBase
+  ? (/^https?:\/\//.test(configuredBase) ? configuredBase : `https://${configuredBase}`).replace(/\/$/, "")
+  : "http://localhost:8000";
 
 /** RFC 9457 problem details as thrown by the API. */
 export class Problem extends Error {

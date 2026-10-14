@@ -82,3 +82,11 @@ cd web && npm run dev                  # http://localhost:5173
 ```
 
 Screenshots of the client running against it are in `docs/screenshots/`.
+
+## Deploying the demo to Render
+
+`render.yaml` is a Render Blueprint that deploys the mock API as a Python web service and the
+client as a static site, with the client's `VITE_API_BASE` wired to the API's hostname. In the
+Render dashboard choose **New → Blueprint**, pick this repository, and apply. Data lives in
+memory on the API instance, so it resets on each deploy or restart, and video uploads fail
+there because the native Python runtime has no ffmpeg. Image and HEIC uploads work.

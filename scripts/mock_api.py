@@ -13,6 +13,7 @@ from __future__ import annotations
 import io
 import json
 import math
+import os
 import random
 import subprocess
 import tempfile
@@ -37,14 +38,19 @@ except ImportError:  # pragma: no cover
     pass
 
 MEDIA = Path(tempfile.mkdtemp(prefix="dam-mock-media-"))
-BASE = "http://localhost:8000"
+PORT = int(os.environ.get("PORT", "8000"))
+# Public URL media links are built from. Render sets RENDER_EXTERNAL_URL automatically.
+BASE = (os.environ.get("MOCK_BASE_URL") or os.environ.get("RENDER_EXTERNAL_URL") or f"http://localhost:{PORT}").rstrip("/")
+# Extra browser origins allowed to call the API, comma separated (the deployed web client).
+WEB_ORIGINS = [o.strip().rstrip("/") for o in os.environ.get("MOCK_WEB_ORIGIN", "").split(",") if o.strip()]
 rng = random.Random(7)
 now = datetime.now(UTC)
 
 app = FastAPI(title="DAM mock API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", *WEB_ORIGINS],
+    allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -685,4 +691,4 @@ def add_board_assets(bid: str, body: dict):
 
 if __name__ == "__main__":
     print(f"mock media in {MEDIA}; {len(ASSETS)} assets across {len(PROJECTS)} projects")
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+    uvicorn.run(app, host=os.environ.get("HOST", "127.0.0.1"), port=PORT, log_level="warning")

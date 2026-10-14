@@ -1,0 +1,38 @@
+# Render Blueprint: the React client as a static site and the in-memory mock API as a web
+# service. No database, object storage, or model keys are needed. Data resets on every deploy
+# or restart, and video uploads need ffmpeg, which Render's native Python runtime lacks.
+#
+# Deploy: https://dashboard.render.com/blueprints -> New Blueprint Instance -> this repo.
+services:
+  - type: web
+    name: dam-mock-api
+    runtime: python
+    plan: free
+    buildCommand: pip install "fastapi>=0.115" "uvicorn[standard]>=0.30" "pillow>=10.4" "pillow-heif>=0.18"
+    startCommand: python scripts/mock_api.py
+    healthCheckPath: /me
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: HOST
+        value: 0.0.0.0
+      # Any https://*.onrender.com origin is allowed by default; set this if you add a custom domain.
+      - key: MOCK_WEB_ORIGIN
+        value: ""
+
+  - type: web
+    name: dam-web
+    runtime: static
+    rootDir: web
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE
+        fromService:
+          type: web
+          name: dam-mock-api
+          property: host
