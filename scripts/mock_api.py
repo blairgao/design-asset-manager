@@ -113,14 +113,18 @@ def _hex(c: str) -> tuple[int, int, int]:
 
 def _render(asset_id: str, colors: list[str], label: str, w: int, h: int) -> dict[str, str]:
     c0, c1, c2 = (_hex(c) for c in colors[:3])
-    img = Image.new("RGB", (w, h))
+    # Paint the gradient on a small canvas and scale it up: a per-pixel Python loop at full
+    # size takes ~1 s per image locally and minutes on a small Render instance.
+    sw, sh = 64, max(1, round(64 * h / w))
+    img = Image.new("RGB", (sw, sh))
     px = img.load()
-    for y in range(h):
-        for x in range(w):
-            t = (x / w + y / h) / 2
+    for y in range(sh):
+        for x in range(sw):
+            t = (x / sw + y / sh) / 2
             a, b = (c0, c1) if t < 0.5 else (c1, c2)
             u = t * 2 if t < 0.5 else (t - 0.5) * 2
             px[x, y] = tuple(int(a[i] + (b[i] - a[i]) * u) for i in range(3))
+    img = img.resize((w, h), Image.Resampling.BILINEAR)
     d = ImageDraw.Draw(img)
     # a few "architectural" shapes so thumbnails are not pure gradients
     for i in range(4):
