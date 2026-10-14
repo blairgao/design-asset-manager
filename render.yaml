@@ -31,8 +31,8 @@ services:
         source: /*
         destination: /index.html
     envVars:
+      # Vite inlines this at build time, and the browser needs the public hostname.
+      # `fromService: host` would give the internal one (dam-mock-api), which browsers
+      # cannot resolve. Change this if the API service is renamed.
       - key: VITE_API_BASE
-        fromService:
-          type: web
-          name: dam-mock-api
-          property: host
+        value: https://dam-mock-api.onrender.com
