@@ -82,14 +82,6 @@ const qs = (params: Record<string, string | number | undefined | null>) => {
 
 export const api = {
   // auth
-  // MOCKED: always succeeds without calling the backend. Restore the real
-  // request below when the magic-link endpoint is wired up.
-  requestMagicLink: async (email: string): Promise<{ status: string }> => {
-    console.info(`[mock] magic link "sent" to ${email}`);
-    return { status: "sent" };
-  },
-  // requestMagicLink: (email: string) =>
-  //   request<{ status: string }>("POST", "/auth/magic-link", { email }, { firm: false }),
   me: () => request<Me>("GET", "/me", undefined, { firm: false }),
   logout: () => request<void>("POST", "/auth/logout", undefined, { firm: false }),
 

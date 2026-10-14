@@ -2,7 +2,7 @@ import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 
 export default function Layout() {
-  const { me, firm, switchFirm, logout } = useAuth();
+  const { me, firm, switchFirm } = useAuth();
   const navigate = useNavigate();
   return (
     <div className="app">
@@ -31,9 +31,6 @@ export default function Layout() {
             <span className="muted">{firm?.firm_name}</span>
           )}
           <span className="pill">{firm?.role}</span>
-          <button className="btn ghost" onClick={() => void logout().then(() => navigate("/login"))}>
-            Sign out
-          </button>
         </div>
       </header>
       <main className="main">

@@ -1,7 +1,6 @@
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth";
 import Layout from "./components/Layout";
-import Login from "./pages/Login";
 import Projects from "./pages/Projects";
 import ProjectPage from "./pages/Project";
 import AssetDetail from "./pages/AssetDetail";
@@ -10,9 +9,8 @@ import BoardPage from "./pages/Board";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { me, loading, firm } = useAuth();
-  const location = useLocation();
   if (loading) return <div className="center muted">Loading…</div>;
-  if (!me) return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!me) return <div className="center muted">Not signed in.</div>;
   if (!firm)
     return (
       <div className="center">
@@ -25,7 +23,6 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
       <Route
         element={
           <RequireAuth>

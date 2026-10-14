@@ -166,10 +166,6 @@ select.select { padding-right: 32px; appearance: none; -webkit-appearance: none;
 .inline-form { padding: 10px; margin-bottom: 28px; gap: 10px; }
 .inline-form input { flex: 1; min-width: 200px; border-color: transparent; background: var(--surface-2); }
 .inline-form input:focus { background: var(--surface); border-color: var(--ink); }
-.login { padding: 40px 36px 36px; width: min(440px, 100%); display: flex; flex-direction: column; gap: 10px; box-shadow: var(--shadow-lg); border-radius: var(--radius-lg); }
-.login h1 { font-size: 2.1rem; }
-.login > .muted { margin-bottom: 18px; line-height: 1.5; }
-.login .btn.primary { margin-top: 6px; padding: 12px 18px; justify-content: center; }
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 .field > span { font-size: 0.82rem; font-weight: 500; color: var(--text-2); }
 
@@ -368,5 +364,4 @@ select.select { padding-right: 32px; appearance: none; -webkit-appearance: none;
   .topbar { padding: 12px 16px; }
   .page { padding: 24px 16px 48px; }
   h1 { font-size: 1.6rem; }
-  .login { padding: 28px 22px; }
 }
