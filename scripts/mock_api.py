@@ -11,10 +11,13 @@ assets sharing a room tag. Images are generated gradients.
 from __future__ import annotations
 
 import io
+import json
 import math
 import random
 import subprocess
 import tempfile
+import threading
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -24,7 +27,14 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
+
+try:  # iPhone photos
+    import pillow_heif
+
+    pillow_heif.register_heif_opener()
+except ImportError:  # pragma: no cover
+    pass
 
 MEDIA = Path(tempfile.mkdtemp(prefix="dam-mock-media-"))
 BASE = "http://localhost:8000"
@@ -196,7 +206,7 @@ def seed() -> None:
         ASSETS[v["id"]] = v
     processing = _make_asset(pids[0], SCENES[0], 50)
     processing.update({"status": "processing", "caption": None, "tags": [], "colors": None,
-                       "thumb_url": None, "preview_url": None, "derived": []})
+                       "thumb_url": None, "preview_url": None, "derived": [], "_ready_at": time.time() + 20})
     ASSETS[processing["id"]] = processing
     for a in list(ASSETS.values())[:3]:
         FAVORITES.add(a["id"])
@@ -224,7 +234,8 @@ app.mount("/media", StaticFiles(directory=MEDIA), name="media")
 
 
 def _out(a: dict) -> dict:
-    return {**a, "favorited": a["id"] in FAVORITES}
+    _settle(a)
+    return {**{k: v for k, v in a.items() if not k.startswith("_")}, "favorited": a["id"] in FAVORITES}
 
 
 def _project_out(p: dict) -> dict:
@@ -318,14 +329,111 @@ def revoke(pid: str, uid: str):
 # --- uploads -----------------------------------------------------------------
 
 
+def _variant(name: str, url: str, w: int | None, h: int | None, ts: float | None = None) -> dict:
+    return {"variant": name, "url": url, "width": w, "height": h, "timestamp_s": ts}
+
+
+PROCESSING_DELAY_S = 2.0  # keep "processing" visible briefly so the UI's polling path is exercised
+
+
+def _process_image(aid: str, src: Path) -> dict:
+    img = ImageOps.exif_transpose(Image.open(src)).convert("RGB")
+    w, h = img.size
+    small = img.copy()
+    small.thumbnail((64, 64))
+    q = small.quantize(colors=3, method=Image.Quantize.MEDIANCUT)
+    pal = q.getpalette() or []
+    by_freq = sorted(q.getcolors() or [], reverse=True)
+    colors = [f"#{pal[i * 3]:02x}{pal[i * 3 + 1]:02x}{pal[i * 3 + 2]:02x}" for _, i in by_freq[:3]]
+    urls = {}
+    for variant, size in (("preview", 1600), ("thumb", 256)):
+        copy = img.copy()
+        copy.thumbnail((size, size))
+        path = MEDIA / f"{aid}_{variant}.webp"
+        copy.save(path, "WEBP", quality=80)
+        urls[variant] = f"{BASE}/media/{path.name}"
+    return {
+        "width": w, "height": h, "colors": colors, "thumb_url": urls["thumb"], "preview_url": urls["preview"],
+        "derived": [_variant("thumb", urls["thumb"], 256, None), _variant("preview", urls["preview"], w, h)],
+    }
+
+
+def _process_video(aid: str, src: Path) -> dict:
+    if not which("ffmpeg") or not which("ffprobe"):
+        raise RuntimeError("ffmpeg is not installed")
+    probe = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                            "stream=width,height:format=duration", "-of", "json", str(src)],
+                           capture_output=True, text=True, check=True)
+    info = json.loads(probe.stdout)
+    stream = (info.get("streams") or [{}])[0]
+    w, h = int(stream.get("width") or 0), int(stream.get("height") or 0)
+    duration = float((info.get("format") or {}).get("duration") or 0.0)
+    preview = MEDIA / f"{aid}_preview.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-vf", "scale='min(1280,iw)':-2",
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-pix_fmt", "yuv420p",
+                    "-c:a", "aac", "-movflags", "+faststart", str(preview)], check=True)
+    frame = MEDIA / f"{aid}_frame.jpg"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(min(0.5, duration / 2)), "-i", str(src),
+                    "-frames:v", "1", str(frame)], check=True)
+    img_out = _process_image(aid, frame)
+    poster = img_out["preview_url"]
+    preview_url = f"{BASE}/media/{preview.name}"
+    return {
+        "width": w or img_out["width"], "height": h or img_out["height"], "duration_s": round(duration, 2),
+        "colors": img_out["colors"], "thumb_url": img_out["thumb_url"], "preview_url": preview_url,
+        "derived": [_variant("poster", poster, w, h), _variant("thumb", img_out["thumb_url"], 256, None),
+                    _variant("preview", preview_url, w, h), _variant("keyframe_000", poster, w, h, 0.0)],
+    }
+
+
+def _enrich(aid: str, src: Path) -> None:
+    """Runs on a worker thread after the upload completes; stands in for the image/video queues."""
+    a = ASSETS.get(aid)
+    if a is None:
+        return
+    try:
+        result = _process_video(aid, src) if a["kind"] == "video" else _process_image(aid, src)
+        scene = rng.choice(SCENES)  # fake "vision" output; the real backend asks Claude
+        room, style, materials, objects, _colors, caption = scene
+        tags = [_tag("room", room, conf=0.9), _tag("phase", rng.choice(PHASES), conf=0.7),
+                _tag("style", style, conf=0.8)]
+        tags += [_tag("material", m, conf=0.7) for m in materials]
+        tags += [_tag("object", o, conf=0.8) for o in objects]
+        tags += [_tag("color", c, conf=0.9) for c in result["colors"]]
+        a["_result"] = {**result, "caption": caption, "tags": tags}
+    except Exception as e:  # noqa: BLE001
+        a["_result"] = {"status": "failed", "failure_reason": f"{type(e).__name__}: {e}"}
+
+
+def _settle(a: dict) -> None:
+    """Advance a processing asset once its worker finished and the minimum delay passed."""
+    if a.get("status") != "processing" or time.time() < a.get("_ready_at", 0):
+        return
+    result = a.pop("_result", None)
+    if result is None:
+        if "_src" in a:  # upload still being processed by the worker thread
+            return
+        fresh = _make_asset(a["project_id"], rng.choice(SCENES), rng.randint(100, 999))  # seeded placeholder
+        keep = {k: a[k] for k in ("id", "filename", "mime", "bytes", "created_at", "project_id")}
+        a.clear()
+        a.update({**fresh, **keep})
+    else:
+        a.update({"status": "ready", **result})
+    a.pop("_src", None)
+
+
 @app.post("/uploads", status_code=201)
 def start_upload(body: dict):
     aid = str(uuid.uuid4())
-    scene = rng.choice(SCENES)
-    a = _make_asset(body["project_id"], scene, rng.randint(100, 999))
-    a.update({"id": aid, "filename": body["filename"], "mime": body["mime"], "bytes": body["size"],
-              "status": "uploading", "created_at": now.isoformat()})
-    ASSETS[aid] = a
+    kind = "video" if str(body.get("mime", "")).startswith("video/") else "image"
+    ASSETS[aid] = {
+        "id": aid, "project_id": body["project_id"], "kind": kind, "status": "uploading",
+        "filename": body["filename"], "mime": body["mime"], "bytes": body["size"],
+        "width": None, "height": None, "duration_s": None, "internal_only": False, "captured_at": None,
+        "created_at": datetime.now(UTC).isoformat(),
+        "uploader_id": USER["id"], "caption": None, "ocr_text": None, "colors": None, "tags": [],
+        "thumb_url": None, "preview_url": None, "derived": [], "failure_reason": None, "favorited": False,
+    }
     part_size = 64 * 1024 * 1024
     n = max(1, math.ceil(body["size"] / part_size))
     return {"asset_id": aid, "upload_id": "mock", "part_size": part_size,
@@ -334,20 +442,31 @@ def start_upload(body: dict):
 
 @app.put("/mock-s3/{aid}/{part}")
 async def put_part(aid: str, part: int, request: Request):
-    async for _ in request.stream():
-        pass
+    _get(aid)
+    (MEDIA / f"{aid}.part{part:04d}").write_bytes(await request.body())
     return Response(status_code=200, headers={"ETag": f'"etag-{part}"'})
 
 
 @app.post("/uploads/{aid}/complete", status_code=202)
 def complete_upload(aid: str, body: dict):
-    _get(aid)["status"] = "processing"
+    a = _get(aid)
+    parts = sorted(MEDIA.glob(f"{aid}.part*"))
+    ext = Path(a["filename"]).suffix.lower() or ""
+    src = MEDIA / f"{aid}_original{ext}"
+    with open(src, "wb") as out:
+        for part in parts:
+            out.write(part.read_bytes())
+            part.unlink()
+    a.update({"status": "processing", "_src": str(src), "_ready_at": time.time() + PROCESSING_DELAY_S})
+    threading.Thread(target=_enrich, args=(aid, src), daemon=True).start()
     return {"status": "processing", "deferred": False}
 
 
 @app.delete("/uploads/{aid}", status_code=204)
 def abort_upload(aid: str):
     ASSETS.pop(aid, None)
+    for part in MEDIA.glob(f"{aid}.part*"):
+        part.unlink()
     return Response(status_code=204)
 
 
@@ -363,15 +482,7 @@ def list_assets(project_id: str | None = None, limit: int = 50, cursor: str | No
 
 @app.get("/assets/{aid}")
 def get_asset(aid: str):
-    a = _get(aid)
-    if a["status"] == "processing":  # processing assets become ready on the second poll
-        a["_polls"] = a.get("_polls", 0) + 1
-        if a["_polls"] >= 2:
-            fresh = _make_asset(a["project_id"], rng.choice(SCENES), rng.randint(100, 999))
-            keep = {k: a[k] for k in ("id", "filename", "mime", "bytes", "created_at", "project_id")}
-            a.clear()
-            a.update({**fresh, **keep, "status": "ready"})
-    return _out(a)
+    return _out(_get(aid))
 
 
 @app.patch("/assets/{aid}")
