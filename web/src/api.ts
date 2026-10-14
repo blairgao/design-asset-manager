@@ -54,7 +54,6 @@ async function request<T>(
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
-    credentials: "include",
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {
@@ -81,9 +80,8 @@ const qs = (params: Record<string, string | number | undefined | null>) => {
 };
 
 export const api = {
-  // auth
+  // current user (no sign-in yet; the API answers with a fixed local user)
   me: () => request<Me>("GET", "/me", undefined, { firm: false }),
-  logout: () => request<void>("POST", "/auth/logout", undefined, { firm: false }),
 
   // projects
   listProjects: (firmId: string) => request<Project[]>("GET", `/firms/${firmId}/projects`),

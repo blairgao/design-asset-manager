@@ -1,8 +1,8 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
-import { useAuth } from "../auth";
+import { useViewer } from "../viewer";
 
 export default function Layout() {
-  const { me, firm, switchFirm } = useAuth();
+  const { me, firm, switchFirm } = useViewer();
   const navigate = useNavigate();
   return (
     <div className="app">

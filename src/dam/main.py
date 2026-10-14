@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from dam.config import get_settings
-from dam.routers import assets, auth, boards, projects, search, uploads
+from dam.routers import assets, boards, me, projects, search, uploads
 from dam.viewer import Forbidden
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -26,7 +26,7 @@ def create_app() -> FastAPI:
         title="Design Asset Manager API",
         version="0.1.0",
         lifespan=lifespan,
-        openapi_tags=[{"name": t} for t in ("auth", "projects", "uploads", "assets", "search", "boards")],
+        openapi_tags=[{"name": t} for t in ("me", "projects", "uploads", "assets", "search", "boards")],
     )
     app.add_middleware(
         CORSMiddleware,
@@ -35,7 +35,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    for r in (auth, projects, uploads, assets, search, boards):
+    for r in (me, projects, uploads, assets, search, boards):
         app.include_router(r.router)
 
     @app.get("/health", include_in_schema=False)

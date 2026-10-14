@@ -4,10 +4,9 @@ import uuid
 
 from fastapi import APIRouter, HTTPException
 
-from dam import audit, auth, mail
-from dam.config import get_settings
+from dam import audit
 from dam.deps import CurrentViewer, Session
-from dam.models import Firm, Project, ProjectAccess
+from dam.models import Project, ProjectAccess
 from dam.repositories import assets as asset_repo
 from dam.repositories import projects as project_repo
 from dam.schemas import (
@@ -83,15 +82,12 @@ async def list_access(project_id: uuid.UUID, session: Session, viewer: CurrentVi
 
 @router.post("/projects/{project_id}/access", response_model=ProjectAccessOut, status_code=201)
 async def invite(project_id: uuid.UUID, body: ProjectInvite, session: Session, viewer: CurrentViewer):
-    """Invite a client to a project. Creates the user if needed and emails a magic link."""
+    """Give a client access to a project, creating the user if needed. No invite email yet."""
     viewer.require_staff()
     project = await project_repo.get_project(session, viewer, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="project not found")
     user, _ = await project_repo.grant_access(session, viewer, project, body.email, body.role)
-    token = await auth.create_magic_link(
-        session, body.email, firm_id=viewer.firm_id, project_id=project.id, invite_role=body.role
-    )
     audit.record(
         session,
         viewer,
@@ -101,15 +97,6 @@ async def invite(project_id: uuid.UUID, body: ProjectInvite, session: Session, v
         {"email": body.email, "role": body.role},
     )
     await session.commit()
-    firm = await session.get(Firm, viewer.firm_id)
-    await mail.send_mail(
-        body.email,
-        f"{firm.name if firm else 'A firm'} shared a project with you",
-        f'You have been given access to "{project.name}".\n\n'
-        f"Open it here:\n{auth.magic_link_url(token)}\n\n"
-        "This link works once and expires in 15 minutes. You can request a new one from "
-        f"{get_settings().web_origin} at any time.",
-    )
     return ProjectAccessOut(user_id=user.id, email=user.email, name=user.name, role=body.role)
 
 

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, Problem } from "../api";
-import { useAuth } from "../auth";
+import { useViewer } from "../viewer";
 import TagChips from "../components/TagChips";
 import { formatDuration } from "../components/AssetCard";
 
@@ -16,7 +16,7 @@ export default function AssetDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { isStaff, me } = useAuth();
+  const { isStaff, me } = useViewer();
   const asset = useQuery({
     queryKey: ["asset", id],
     queryFn: () => api.getAsset(id),

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import { useAuth } from "../auth";
+import { useViewer } from "../viewer";
 import AssetCard from "../components/AssetCard";
 import FacetSidebar from "../components/FacetSidebar";
 import ProjectSettings from "../components/ProjectSettings";
@@ -22,7 +22,7 @@ function useDebounced<T>(value: T, ms: number): T {
 
 export default function ProjectPage() {
   const { id = "" } = useParams();
-  const { isStaff, role } = useAuth();
+  const { isStaff, role } = useViewer();
   const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
   const similarTo = params.get("similar_to");

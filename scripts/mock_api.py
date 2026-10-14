@@ -261,17 +261,7 @@ def _get(aid: str) -> dict:
     return a
 
 
-# --- auth / me ---------------------------------------------------------------
-
-
-@app.post("/auth/magic-link", status_code=202)
-def magic_link(body: dict):
-    return {"status": "sent"}
-
-
-@app.post("/auth/logout", status_code=204)
-def logout():
-    return Response(status_code=204)
+# --- me (no sign-in: a fixed local user) -------------------------------------
 
 
 @app.get("/me")

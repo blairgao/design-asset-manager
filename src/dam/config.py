@@ -3,18 +3,13 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-INSECURE_DEV_SECRET = "dev-only-insecure-secret-key-change-me"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="DAM_", env_file=".env", extra="ignore")
 
     env: Literal["dev", "test", "staging", "prod"] = "dev"
-    # Insecure default so imports and tests work without a .env; refused outside dev/test.
-    secret_key: str = Field(default=INSECURE_DEV_SECRET, min_length=16)
     base_url: str = "http://localhost:8000"
     web_origin: str = "http://localhost:5173"
 
@@ -48,22 +43,14 @@ class Settings(BaseSettings):
     video_keyframe_max: int = 60
     video_scene_threshold: float = 0.3
 
-    # Auth (ADR-011)
-    magic_link_ttl_seconds: int = 15 * 60
-    session_ttl_seconds: int = 30 * 24 * 3600
-
-    # Mail
-    mail_backend: Literal["console", "smtp"] = "console"
-    smtp_host: str | None = None
-    smtp_port: int = 587
-    smtp_user: str | None = None
-    smtp_password: str | None = None
-    mail_from: str = "no-reply@example.com"
+    # No sign-in yet: every request runs as this user, an admin of this firm.
+    # Both are created on first request if missing.
+    local_user_email: str = "local@example.com"
+    local_user_name: str = "Local User"
+    local_firm_slug: str = "local"
+    local_firm_name: str = "My Studio"
 
 
 @lru_cache
 def get_settings() -> Settings:
-    settings = Settings()
-    if settings.env in ("staging", "prod") and settings.secret_key == INSECURE_DEV_SECRET:
-        raise RuntimeError("DAM_SECRET_KEY must be set outside dev")
-    return settings
+    return Settings()

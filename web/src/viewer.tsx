@@ -1,33 +1,27 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, Problem, setActiveFirm } from "./api";
+import { api, setActiveFirm } from "./api";
 import type { FirmRole, Me, Membership } from "./types";
 
-interface AuthState {
+interface ViewerState {
   me: Me | null;
   loading: boolean;
+  error: unknown;
   firm: Membership | null;
   role: FirmRole | null;
   isStaff: boolean;
   switchFirm: (firmId: string) => void;
-  logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthState | null>(null);
+const ViewerContext = createContext<ViewerState | null>(null);
 const FIRM_KEY = "dam.activeFirm";
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+/** The current user. There is no sign-in yet: the API answers /me with a fixed local user. */
+export function ViewerProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const meQuery = useQuery({
     queryKey: ["me"],
-    queryFn: async () => {
-      try {
-        return await api.me();
-      } catch (e) {
-        if (e instanceof Problem && e.status === 401) return null;
-        throw e;
-      }
-    },
+    queryFn: () => api.me(),
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
@@ -56,9 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [firm]);
 
-  const value: AuthState = {
+  const value: ViewerState = {
     me,
     loading: meQuery.isLoading,
+    error: meQuery.error,
     firm,
     role: firm?.role ?? null,
     isStaff: firm?.role === "admin" || firm?.role === "staff",
@@ -66,20 +61,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setFirmId(id);
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
     },
-    logout: async () => {
-      await api.logout();
-      setActiveFirm(null);
-      qc.clear();
-      await qc.invalidateQueries({ queryKey: ["me"] });
-    },
   };
   // Keep the header in sync before children render their first queries.
   setActiveFirm(firm?.firm_id ?? null);
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <ViewerContext.Provider value={value}>{children}</ViewerContext.Provider>;
 }
 
-export function useAuth(): AuthState {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth outside AuthProvider");
+export function useViewer(): ViewerState {
+  const ctx = useContext(ViewerContext);
+  if (!ctx) throw new Error("useViewer outside ViewerProvider");
   return ctx;
 }

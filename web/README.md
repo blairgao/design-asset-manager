@@ -1,7 +1,7 @@
 # Web client
 
-React + TypeScript single-page app (ADR-012). Talks to the API with cookie sessions and an
-`X-Firm-Id` header.
+React + TypeScript single-page app (ADR-012). Talks to the API with an `X-Firm-Id` header.
+There is no sign-in yet: the API answers `/me` with a fixed local user.
 
 ```sh
 cd web
@@ -11,5 +11,5 @@ npm run dev                  # http://localhost:5173
 npm run build                # static bundle in dist/
 ```
 
-The API must allow this origin (`DAM_WEB_ORIGIN`) and the magic-link redirect lands on this
-origin, so run both on the hosts configured in the API's `.env`.
+The API must allow this origin (`DAM_WEB_ORIGIN`), so run both on the hosts configured in
+the API's `.env`.

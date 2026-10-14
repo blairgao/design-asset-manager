@@ -19,7 +19,6 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -85,16 +84,6 @@ class User(TimestampMixin, Base):
     email: Mapped[str] = mapped_column(String(320), unique=True)
     name: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
-
-class Identity(TimestampMixin, Base):
-    """Reserved for OIDC/SSO (ADR-011). Magic-link users have no row here."""
-
-    __tablename__ = "identity"
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"))
-    provider: Mapped[str] = mapped_column(String(60))
-    subject: Mapped[str] = mapped_column(String(320))
-    __table_args__ = (UniqueConstraint("provider", "subject"),)
 
 
 class Membership(TimestampMixin, Base):
@@ -312,17 +301,3 @@ class EnrichmentUsage(Base):
     output_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     assets_enriched: Mapped[int] = mapped_column(Integer, default=0)
 
-
-class MagicLink(TimestampMixin, Base):
-    __tablename__ = "magic_link"
-    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
-    email: Mapped[str] = mapped_column(String(320))
-    firm_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("firm.id", ondelete="CASCADE"), nullable=True
-    )
-    project_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("project.id", ondelete="CASCADE"), nullable=True
-    )
-    invite_role: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

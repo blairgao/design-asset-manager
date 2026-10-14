@@ -20,11 +20,7 @@ class Problem(BaseModel):
     detail: str | None = None
 
 
-# --- auth / me ---------------------------------------------------------------
-
-
-class MagicLinkRequest(BaseModel):
-    email: EmailStr
+# --- me ----------------------------------------------------------------------
 
 
 class MembershipOut(BaseModel):

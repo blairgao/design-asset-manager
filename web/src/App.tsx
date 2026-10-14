@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { useAuth } from "./auth";
+import { useViewer } from "./viewer";
 import Layout from "./components/Layout";
 import Projects from "./pages/Projects";
 import ProjectPage from "./pages/Project";
@@ -7,16 +7,11 @@ import AssetDetail from "./pages/AssetDetail";
 import Boards from "./pages/Boards";
 import BoardPage from "./pages/Board";
 
-function RequireAuth({ children }: { children: JSX.Element }) {
-  const { me, loading, firm } = useAuth();
+function RequireViewer({ children }: { children: JSX.Element }) {
+  const { me, loading, error, firm } = useViewer();
   if (loading) return <div className="center muted">Loading…</div>;
-  if (!me) return <div className="center muted">Not signed in.</div>;
-  if (!firm)
-    return (
-      <div className="center">
-        <p>Your account is not a member of any firm yet. Ask your firm admin for an invite.</p>
-      </div>
-    );
+  if (error || !me) return <div className="center error">Could not reach the API. {String(error ?? "")}</div>;
+  if (!firm) return <div className="center muted">This user is not a member of any firm yet.</div>;
   return children;
 }
 
@@ -25,9 +20,9 @@ export default function App() {
     <Routes>
       <Route
         element={
-          <RequireAuth>
+          <RequireViewer>
             <Layout />
-          </RequireAuth>
+          </RequireViewer>
         }
       >
         <Route path="/" element={<Projects />} />

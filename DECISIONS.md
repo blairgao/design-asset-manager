@@ -27,7 +27,7 @@ Conventions:
 | [ADR-008](#adr-008-video-is-understood-through-sampled-keyframes) | Video is understood through sampled keyframes | Proposed |
 | [ADR-009](#adr-009-logical-multi-tenancy-with-firm_id-on-every-row) | Logical multi-tenancy with firm_id on every row | Proposed |
 | [ADR-010](#adr-010-auto-tags-never-overwrite-manual-tags) | Auto tags never overwrite manual tags | Proposed |
-| [ADR-011](#adr-011-magic-link-authentication-no-passwords) | Magic-link authentication, no passwords | Proposed |
+| [ADR-011](#adr-011-no-sign-in-yet) | No sign-in yet | Accepted |
 | [ADR-012](#adr-012-react-single-page-app-for-the-web-client) | React single-page app for the web client | Proposed |
 | [ADR-013](#adr-013-aws-s3-for-object-storage) | AWS S3 for object storage | Accepted |
 
@@ -408,34 +408,39 @@ edits are written to the audit log.
 
 ---
 
-## ADR-011: Magic-link authentication, no passwords
+## ADR-011: No sign-in yet
 
 Date: 2026-10-14
-Status: Proposed
+Status: Accepted
 
 ### Context
 
-Clients are occasional users invited by email. Password onboarding is the
-step where client participation dies. Firm staff may later want SSO.
+The product is being validated with a single studio before any client is
+invited. A login flow (magic links, sessions, transactional email) was built
+and then removed: it added a mail provider and a secret to every environment
+without yet serving a real user.
 
 ### Decision
 
-Email magic links for all users at v1, with sessions in signed HTTP-only
-cookies. Invitations and logins are the same flow. Reserve an `identity`
-table so OIDC/SSO for firms can be added without touching `user`.
+Ship without authentication. Every API request runs as one local user, an
+admin of one local firm, both created on the first request from
+`DAM_LOCAL_USER_EMAIL` and `DAM_LOCAL_FIRM_SLUG`. The `Viewer` abstraction,
+firm and project roles, and tenant scoping (ADR-009) stay in place so that
+adding sign-in later only changes how the user id is resolved in `deps.py`.
 
 ### Alternatives
 
-- **Passwords plus reset flow**: familiar but higher friction and a credential
-  store to protect.
-- **Third-party auth service**: fast to start, adds a vendor to the critical
-  path of every login; revisit when SSO is required.
+- **Keep magic links**: the previous decision. Email delivery was on the
+  critical path of every login for a product with no external users.
+- **Passwords or a third-party auth service**: more to run and protect, same
+  lack of a user to serve.
 
 ### Consequences
 
-- Transactional email delivery is on the critical path. Use a provider with
-  delivery monitoring from day one.
-- Links expire in 15 minutes and are single-use.
+- The API must not be exposed on a public network until sign-in exists.
+- Inviting a client to a project grants access but sends nothing; the client
+  cannot reach the app yet.
+- Revisit when the first external client is onboarded.
 
 ---
 

@@ -2,12 +2,12 @@ import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import { useAuth } from "../auth";
+import { useViewer } from "../viewer";
 
 export default function Boards() {
   const { id = "" } = useParams();
   const qc = useQueryClient();
-  const { isStaff } = useAuth();
+  const { isStaff } = useViewer();
   const project = useQuery({ queryKey: ["project", id], queryFn: () => api.getProject(id) });
   const boards = useQuery({ queryKey: ["boards", id], queryFn: () => api.listBoards(id) });
   const [name, setName] = useState("");

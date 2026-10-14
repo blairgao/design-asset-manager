@@ -22,9 +22,7 @@ dependencies = [
     "pillow>=10.4",
     "pillow-heif>=0.18",
     "numpy>=2.0",
-    "itsdangerous>=2.2",
     "python-multipart>=0.0.9",
-    "aiosmtplib>=3.0",
     "structlog>=24.1",
     "cryptography>=42",
 ]

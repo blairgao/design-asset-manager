@@ -3,21 +3,47 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Depends, Header, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from dam.auth import SESSION_COOKIE, read_session
+from dam.config import get_settings
 from dam.db import get_session
+from dam.models import Firm, FirmRole, Membership, User
 from dam.viewer import Viewer, resolve_viewer
 
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 
-async def current_user_id(request: Request) -> uuid.UUID:
-    user_id = read_session(request.cookies.get(SESSION_COOKIE))
-    if user_id is None:
-        raise HTTPException(status_code=401, detail="not signed in")
-    return user_id
+async def ensure_local_user(session: AsyncSession) -> User:
+    """Return the single local user, creating it and a default firm on first use.
+
+    There is no sign-in yet: every request runs as this user, who is an admin of
+    DAM_LOCAL_FIRM_SLUG. Replace this with real authentication later.
+    """
+    settings = get_settings()
+    email = settings.local_user_email.lower().strip()
+    user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
+    if user is None:
+        user = User(email=email, name=settings.local_user_name)
+        session.add(user)
+        await session.flush()
+    firm = (
+        await session.execute(select(Firm).where(Firm.slug == settings.local_firm_slug))
+    ).scalar_one_or_none()
+    if firm is None:
+        firm = Firm(name=settings.local_firm_name, slug=settings.local_firm_slug)
+        session.add(firm)
+        await session.flush()
+    if await session.get(Membership, (user.id, firm.id)) is None:
+        session.add(Membership(user_id=user.id, firm_id=firm.id, role=FirmRole.admin))
+        await session.flush()
+    await session.commit()
+    return user
+
+
+async def current_user_id(session: Session) -> uuid.UUID:
+    return (await ensure_local_user(session)).id
 
 
 async def current_viewer(

@@ -15,7 +15,7 @@ src/dam/
   cli.py             admin CLI: firms, members, vocabulary, re-enrichment (dam-admin)
   models.py          SQLAlchemy models (DESIGN.md section 5)
   viewer.py          resolved caller + tenant/project scoping (ADR-009)
-  auth.py, mail.py   magic links and cookie sessions (ADR-011)
+  deps.py            request dependencies; the fixed local user (no sign-in yet, ADR-011)
   storage.py         S3 keys, multipart presigning, CloudFront signing (ADR-013)
   queue.py           job enqueueing (ADR-006)
   routers/           HTTP handlers; every handler goes through a Viewer
@@ -44,16 +44,13 @@ cp .env.example .env            # defaults match docker-compose.yml
 uv run alembic upgrade head
 uv run dam-admin seed-vocabulary
 
-# 4. A firm and a sign-in link (links are printed to the log with DAM_MAIL_BACKEND=console).
-uv run dam-admin create-firm --name "Studio Arc" --slug studio-arc --admin you@example.com
-uv run dam-admin login-link --email you@example.com
-
-# 5. Run the three processes.
+# 4. Run the three processes. There is no sign-in yet: the first request creates a local
+#    admin user and firm (DAM_LOCAL_USER_EMAIL / DAM_LOCAL_FIRM_SLUG in .env).
 uv run dam-api                  # http://localhost:8000, OpenAPI at /docs
 uv run dam-worker images
 uv run dam-worker video
 
-# 6. The web client.
+# 5. The web client.
 cd web && npm install && npm run dev    # http://localhost:5173
 ```
 
@@ -69,7 +66,7 @@ uv run ruff check src tests
 - **Re-enrich a firm** after a vocabulary or prompt change: `dam-admin reenrich --firm <slug>`. Jobs are queued at low priority; manual tags are never overwritten.
 - **Budgets**: when a firm exceeds its monthly token budget (`DAM_MONTHLY_ENRICHMENT_BUDGET_TOKENS` or the per-firm override), uploads still succeed and enrichment is deferred.
 - **Production storage**: leave `DAM_S3_ENDPOINT_URL` empty, give the API and worker IAM roles, and set the CloudFront variables so derived files are served from the CDN (ADR-013).
-- **Secrets**: `DAM_SECRET_KEY` must be set outside dev; the API refuses to start otherwise.
+- **No sign-in yet** (ADR-011): every request runs as the local admin user. Do not expose the API on a public network until authentication exists.
 
 ## Developing the client without the backend
 

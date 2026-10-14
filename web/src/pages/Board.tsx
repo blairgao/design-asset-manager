@@ -2,14 +2,14 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import { useAuth } from "../auth";
+import { useViewer } from "../viewer";
 import AssetCard from "../components/AssetCard";
 
 export default function BoardPage() {
   const { id = "" } = useParams();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { isStaff, me } = useAuth();
+  const { isStaff, me } = useViewer();
   const board = useQuery({ queryKey: ["board", id], queryFn: () => api.getBoard(id) });
   const assets = useQuery({ queryKey: ["board-assets", id], queryFn: () => api.boardAssets(id) });
   const [selected, setSelected] = useState<Set<string>>(new Set());

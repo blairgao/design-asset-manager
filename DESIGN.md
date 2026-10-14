@@ -268,8 +268,7 @@ only if that target is missed (ADR-004).
 ## 10. API surface (v1)
 
 ```
-POST   /auth/magic-link            email login, no passwords
-GET    /me
+GET    /me                         the current user (fixed local user until sign-in exists)
 GET    /firms/{id}/projects
 POST   /firms/{id}/projects
 POST   /projects/{id}/access       invite user to project

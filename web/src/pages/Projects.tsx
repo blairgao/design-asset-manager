@@ -2,10 +2,10 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import { useAuth } from "../auth";
+import { useViewer } from "../viewer";
 
 export default function Projects() {
-  const { firm, isStaff } = useAuth();
+  const { firm, isStaff } = useViewer();
   const qc = useQueryClient();
   const firmId = firm!.firm_id;
   const projects = useQuery({ queryKey: ["projects", firmId], queryFn: () => api.listProjects(firmId) });

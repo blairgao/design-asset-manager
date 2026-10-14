@@ -4,7 +4,6 @@ uv run dam-admin create-firm --name "Studio Arc" --slug studio-arc --admin you@f
 uv run dam-admin add-member --firm studio-arc --email a@firm.com --role staff
 uv run dam-admin seed-vocabulary
 uv run dam-admin reenrich --firm studio-arc [--only-embeddings]
-uv run dam-admin login-link --email you@firm.com
 """
 
 from __future__ import annotations
@@ -15,7 +14,6 @@ import sys
 
 from sqlalchemy import select
 
-from dam import auth
 from dam.db import session_factory
 from dam.enrichment.vocabulary import DEFAULT_VOCABULARY
 from dam.models import Asset, AssetStatus, Firm, FirmRole, Membership, User
@@ -92,14 +90,6 @@ async def reenrich(args) -> None:
         print(f"queued {len(assets)} assets for re-enrichment")
 
 
-async def login_link(args) -> None:
-    async with session_factory()() as session:
-        await _ensure_user(session, args.email)
-        token = await auth.create_magic_link(session, args.email)
-        await session.commit()
-        print(auth.magic_link_url(token))
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(prog="dam-admin")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -122,10 +112,6 @@ def main() -> None:
     p = sub.add_parser("reenrich")
     p.add_argument("--firm", required=True)
     p.set_defaults(fn=reenrich)
-
-    p = sub.add_parser("login-link")
-    p.add_argument("--email", required=True)
-    p.set_defaults(fn=login_link)
 
     args = parser.parse_args()
     asyncio.run(args.fn(args))
